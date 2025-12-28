@@ -1,0 +1,17 @@
+{
+  "name": "cool",
+  "version": "1.0.0",
+  "main": "room.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^4.21.2",
+    "openai": "^4.80.1",
+    "socket.io": "^4.8.1"
+  }
+}
