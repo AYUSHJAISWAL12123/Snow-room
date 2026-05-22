@@ -3,142 +3,535 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chat Application</title>
+  <title>Winter Interactive Chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --primary: #00d4ff; /* Icy Blue */
+      --primary-hover: #00aacc; /* Darker Icy Blue */
+      --bg: #0d1b2a; /* Deep Cool Navy */
+      --glass: rgba(255, 255, 255, 0.03); /* Cool frosted glass */
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --text: #f0f8ff; /* Alice Blue */
+      --text-muted: #a9c2d4;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    #chat {
-      max-height: 400px;
-      overflow-y: auto;
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-bottom: 10px;
+
+    /* 2D Canvas Background */
+    #bg-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
     }
-    #message {
-      width: calc(100% - 60px);
+
+    /* Glassmorphism Utility */
+    .glass-panel {
+      background: var(--glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
     }
-    .message {
-      padding: 8px 10px;
+
+    /* Login Overlay */
+    #login-overlay {
+      padding: 40px 50px;
+      border-radius: 20px;
+      text-align: center;
+      animation: fadeIn 1s ease-out;
+      width: 400px;
+      max-width: 90vw;
+    }
+
+    #login-overlay h1 {
       margin-bottom: 5px;
+      font-weight: 600;
+      background: linear-gradient(90deg, #00d4ff, #e0f7fa);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    #login-overlay p {
+      color: var(--text-muted);
+      margin-bottom: 25px;
+      font-weight: 300;
+    }
+
+    input, button {
+      font-family: inherit;
+      outline: none;
+      border: none;
       border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 1rem;
+    }
+
+    input {
+      background: rgba(0,0,0,0.3);
+      color: white;
+      border: 1px solid var(--glass-border);
+      width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+    }
+
+    button {
+      background: var(--primary);
+      color: #0d1b2a;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
+    }
+
+    #join { width: 100%; margin-top: 15px; }
+
+    /* Main Application */
+    #app-container {
+      width: 95vw;
+      height: 90vh;
+      max-width: 1400px;
+      display: flex;
+      gap: 20px;
+      animation: scaleUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Sidebar */
+    #sidebar {
+      width: 320px;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+    }
+    #sidebar h2 {
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      color: var(--primary);
+    }
+
+    #room-creation {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    #room-creation input { padding: 10px; font-size: 0.9rem; margin: 0; }
+    #create-room { padding: 10px 15px; margin: 0; }
+
+    #room-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 5px;
+    }
+
+    .room-item {
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid transparent;
+    }
+    .room-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+      transform: translateX(4px);
+    }
+    .room-item.active {
+      background: rgba(0, 212, 255, 0.15);
+      border: 1px solid rgba(0, 212, 255, 0.25);
+    }
+    .room-users {
+      font-size: 0.8rem;
+      background: rgba(0,0,0,0.4);
+      padding: 4px 8px;
+      border-radius: 20px;
+      color: var(--primary);
+    }
+
+    /* Chat Area */
+    #chat-area {
+      flex: 1;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #chat-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+    }
+    #current-room-name {
+      font-weight: 600;
+      font-size: 1.4rem;
+    }
+    #current-room-name::before {
+      content: '#';
+      color: var(--primary);
+      margin-right: 8px;
+    }
+
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    #message-input-area {
+      padding: 24px;
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      gap: 12px;
+    }
+    #message-input-area input { margin: 0; flex: 1; padding: 16px 20px; }
+    #send { margin: 0; padding: 16px 30px; }
+
+    /* Message Bubbles */
+    .message {
+      padding: 14px 18px;
+      border-radius: 16px;
       max-width: 70%;
       word-wrap: break-word;
+      animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      line-height: 1.5;
     }
-    .message.current-user {
-      background-color: #d1ffd6;
-      margin-left: auto;
-      text-align: right;
+    .message.sent {
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 170, 204, 0.1));
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
     }
-    .message.other-user {
-      background-color: #f1f1f1;
-      margin-right: auto;
-      text-align: left;
+    .message.received {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
     }
-    #chat-interface {
-      display: none;
+    .message.system {
+      align-self: center;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.9em;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      background: rgba(0,0,0,0.3);
     }
-    #room-selector {
-      margin-bottom: 10px;
+    .msg-sender {
+      font-size: 0.8em;
+      opacity: 0.8;
+      margin-bottom: 6px;
+      display: block;
+      color: var(--primary);
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes scaleUp {
+      from { opacity: 0; transform: scale(0.95) translateY(10px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(15px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @media (max-width: 768px) {
+      #app-container { flex-direction: column; height: 100vh; width: 100vw; max-width: none; border-radius: 0; }
+      #sidebar { width: 100%; height: 30%; border-radius: 0; border-bottom: 1px solid var(--glass-border); }
+      #chat-area { height: 70%; border-radius: 0; }
     }
   </style>
 </head>
 <body>
-  <h1>Real-Time Chat Room</h1>
-  <div>
-    <input id="name" type="text" placeholder="Enter your name" required>
-    <button id="join">Join Chat</button>
-  </div>
-  <div id="chat-interface" style="display: none;">
-    <input id="room-name" type="text" placeholder="Enter room name to create" required>
-    <button id="create-room">Create Room</button>
-    <select id="room-selector"></select>
-    <button id="join-room">Join Room</button>
-    <div id="chat"></div>
-    <input id="message" type="text" placeholder="Type your message...">
-    <button id="send">Send</button>
+
+  <!-- Interactive 2D Canvas Background (Snowfall) -->
+  <canvas id="bg-canvas"></canvas>
+
+  <div id="login-overlay" class="glass-panel">
+    <h1>Winter Chat</h1>
+    <p>Enter a display name to join</p>
+    <input id="name" type="text" placeholder="Your display name" required autofocus>
+    <button id="join">Enter</button>
   </div>
 
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <div id="app-container" style="display: none;">
+    <aside id="sidebar" class="glass-panel">
+      <h2>Channels</h2>
+      <div id="room-creation">
+        <input id="room-name" type="text" placeholder="New channel..." required>
+        <button id="create-room">+</button>
+      </div>
+      <div id="room-list"></div>
+    </aside>
+
+    <main id="chat-area" class="glass-panel">
+      <header id="chat-header">
+        <h2 id="current-room-name">General</h2>
+      </header>
+      <div id="chat"></div>
+      <div id="message-input-area">
+        <input id="message" type="text" placeholder="Type your message..." autocomplete="off">
+        <button id="send">Send</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
   <script>
+    // --- Interactive Canvas Background: Snowfall ---
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let snowflakes = [];
+    const snowflakeCount = 200;
+    
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    
+    class Snowflake {
+      constructor() {
+        this.reset(true);
+      }
+      
+      reset(randomY = false) {
+        this.x = Math.random() * canvas.width;
+        this.y = randomY ? Math.random() * canvas.height : -10;
+        this.size = Math.random() * 3 + 1; // Small circles for snow
+        this.opacity = Math.random() * 0.5 + 0.3; // Slight transparency
+        
+        // Gentle downward speed based on size for parallax effect
+        this.speedY = (Math.random() * 1 + 0.5) * (this.size / 2);
+        // Horizontal drift
+        this.speedX = (Math.random() - 0.5) * 0.5;
+        
+        // Sway effect (sine wave)
+        this.sway = Math.random() * Math.PI * 2;
+        this.swaySpeed = Math.random() * 0.02 + 0.01;
+      }
+      
+      update() {
+        this.y += this.speedY;
+        this.x += this.speedX + Math.sin(this.sway) * 0.5;
+        this.sway += this.swaySpeed;
+        
+        // Reset flake if it falls out of bounds
+        if (this.y > canvas.height + this.size) {
+          this.reset();
+        }
+        if (this.x > canvas.width + this.size) {
+          this.x = -this.size;
+        } else if (this.x < -this.size) {
+          this.x = canvas.width + this.size;
+        }
+      }
+      
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+        
+        // Add a tiny glowing effect for the snow
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = "rgba(255, 255, 255, 0.8)";
+        
+        ctx.fill();
+        
+        // Reset shadow for next draws
+        ctx.shadowBlur = 0;
+      }
+    }
+    
+    function initSnowflakes() {
+      snowflakes = [];
+      for (let i = 0; i < snowflakeCount; i++) {
+        snowflakes.push(new Snowflake());
+      }
+    }
+    
+    function animateSnowflakes() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      snowflakes.forEach(flake => {
+        flake.update();
+        flake.draw();
+      });
+      
+      requestAnimationFrame(animateSnowflakes);
+    }
+    
+    initSnowflakes();
+    animateSnowflakes();
+
+
+    // --- Chat Application Logic ---
     const socket = io();
-    const chat = document.getElementById("chat");
+    
+    const loginOverlay = document.getElementById("login-overlay");
+    const appContainer = document.getElementById("app-container");
     const nameInput = document.getElementById("name");
     const joinButton = document.getElementById("join");
+    
+    const chat = document.getElementById("chat");
     const roomNameInput = document.getElementById("room-name");
     const createRoomButton = document.getElementById("create-room");
-    const roomSelector = document.getElementById("room-selector");
-    const joinRoomButton = document.getElementById("join-room");
+    const roomList = document.getElementById("room-list");
+    const currentRoomHeader = document.getElementById("current-room-name");
     const messageInput = document.getElementById("message");
     const sendButton = document.getElementById("send");
-    const chatInterface = document.getElementById("chat-interface");
   
     let currentUser = "";
     let currentRoom = "";
   
+    // Helper to add messages to the DOM
+    function addMessage(data, type = "received") {
+      const div = document.createElement("div");
+      div.classList.add("message", type);
+      
+      if (type === "system") {
+        div.textContent = data.text;
+      } else {
+        if (type !== "sent" && data.sender) {
+          const senderSpan = document.createElement("span");
+          senderSpan.classList.add("msg-sender");
+          senderSpan.textContent = data.sender;
+          div.appendChild(senderSpan);
+        }
+        const textNode = document.createTextNode(data.text);
+        div.appendChild(textNode);
+      }
+      
+      chat.appendChild(div);
+      // Smooth scroll to bottom
+      chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
+    }
+
+    // Login logic
     joinButton.addEventListener("click", () => {
       const username = nameInput.value.trim();
-      if (!username) {
-        alert("Please enter your name!");
-        return;
-      }
+      if (!username) return;
+      
       currentUser = username;
-      socket.emit("join_room", username, "General"); 
-      nameInput.style.display = "none";
-      joinButton.style.display = "none";
-      chatInterface.style.display = "block";
       currentRoom = "General";
+      
+      socket.emit("join_room", username, "General"); 
+      
+      loginOverlay.style.display = "none";
+      appContainer.style.display = "flex";
+      currentRoomHeader.textContent = "General";
+    });
+
+    nameInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") joinButton.click();
     });
   
-    socket.on("message", (msg) => {
-      const div = document.createElement("div");
-      div.classList.add("message", "other-user");
-      div.textContent = msg;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
+    // Socket Listeners
+    socket.on("message", (data) => {
+      if (data.type === "system") {
+        addMessage(data, "system");
+      } else {
+        addMessage(data, "received");
+      }
     });
   
-    // Update the room list dropdown when room data is received
     socket.on("update_rooms", (rooms) => {
-      roomSelector.innerHTML = ""; 
+      roomList.innerHTML = ""; 
       Object.keys(rooms).forEach((room) => {
-        const option = document.createElement("option");
-        option.value = room;
-        option.textContent = `${room} (${rooms[room]} users)`;
-        roomSelector.appendChild(option);
+        const item = document.createElement("div");
+        item.classList.add("room-item");
+        if (room === currentRoom) item.classList.add("active");
+        
+        item.innerHTML = `
+          <span class="room-name">${room}</span>
+          <span class="room-users">${rooms[room]}</span>
+        `;
+        
+        item.addEventListener("click", () => {
+          if (currentRoom !== room) {
+            socket.emit("join_room", currentUser, room);
+            currentRoom = room;
+            currentRoomHeader.textContent = room;
+            chat.innerHTML = ""; 
+          }
+        });
+        
+        roomList.appendChild(item);
       });
     });
   
+    // Room creation
     createRoomButton.addEventListener("click", () => {
       const roomName = roomNameInput.value.trim();
-      if (roomName) {
-        socket.emit("join_room", currentUser, roomName); // Create and join the new room
+      if (roomName && roomName !== currentRoom) {
+        socket.emit("join_room", currentUser, roomName); 
         currentRoom = roomName;
+        currentRoomHeader.textContent = roomName;
         roomNameInput.value = "";
-        chat.innerHTML = ""; // Clear chat history
+        chat.innerHTML = ""; 
       }
     });
-  
-    joinRoomButton.addEventListener("click", () => {
-      const roomName = roomSelector.value;
-      if (roomName && currentRoom !== roomName) {
-        socket.emit("join_room", currentUser, roomName); // Join the selected room
-        currentRoom = roomName;
-        chat.innerHTML = ""; // Clear chat history when switching rooms
-      }
+    
+    roomNameInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") createRoomButton.click();
     });
   
+    // Sending messages
     sendButton.addEventListener("click", () => {
       const msg = messageInput.value.trim();
       if (msg && currentRoom) {
-        socket.emit("message", msg, currentRoom); // Send message to the current room
-        const div = document.createElement("div");
-        div.classList.add("message", "current-user");
-        div.textContent = `You: ${msg}`;
-        chat.appendChild(div);
+        socket.emit("message", msg, currentRoom);
+        addMessage({ text: msg }, "sent");
         messageInput.value = "";
-        chat.scrollTop = chat.scrollHeight;
       }
     });
   
@@ -148,9 +541,5 @@
       }
     });
   </script>
-  
 </body>
 </html>
-
-
-
