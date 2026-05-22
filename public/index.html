@@ -477,7 +477,10 @@
   
     // Socket Listeners
     socket.on("message", (data) => {
-      if (data.type === "system") {
+      if (typeof data === 'string') {
+        // Fallback if server sends old string format
+        addMessage({ text: data, type: "system" }, "system");
+      } else if (data.type === "system") {
         addMessage(data, "system");
       } else {
         addMessage(data, "received");
